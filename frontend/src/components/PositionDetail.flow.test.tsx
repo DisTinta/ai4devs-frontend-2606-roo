@@ -2,13 +2,26 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import PositionDetail from "./PositionDetail";
-import { getInterviewFlow, InterviewFlow } from "../services/positionService";
+import {
+  getInterviewFlow,
+  getCandidates,
+  InterviewFlow,
+} from "../services/positionService";
 
 jest.mock("../services/positionService");
 
 const mockGetInterviewFlow = getInterviewFlow as jest.MockedFunction<
   typeof getInterviewFlow
 >;
+const mockGetCandidates = getCandidates as jest.MockedFunction<
+  typeof getCandidates
+>;
+
+beforeEach(() => {
+  // HU-3 adds an independent candidates fetch; these HU-2 tests only assert the
+  // columns, so default it to an empty board.
+  mockGetCandidates.mockResolvedValue([]);
+});
 
 const renderAt = (path: string) =>
   render(

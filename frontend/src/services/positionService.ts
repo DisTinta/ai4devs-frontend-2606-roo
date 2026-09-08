@@ -11,6 +11,20 @@ export interface InterviewFlow {
   steps: InterviewStep[];
 }
 
+// A position's candidate as consumed by the kanban board. `currentInterviewStep`
+// is the stage name (display); `currentInterviewStepId` is the numeric stage id
+// used to key the column placement (see ADR 20260908). `id`, `applicationId` and
+// `currentInterviewStepId` are retained even when unshown so HU-4 can issue the
+// stage update by numeric id.
+export interface Candidate {
+  fullName: string;
+  currentInterviewStep: string;
+  currentInterviewStepId: number;
+  averageScore: number;
+  id: number;
+  applicationId: number;
+}
+
 // Shape returned by GET /position/:id/interviewflow. The backend double-nests:
 // the controller wraps a value that already contains positionName + interviewFlow.
 interface InterviewFlowResponse {
@@ -54,4 +68,17 @@ export const getInterviewFlow = async (id: number): Promise<InterviewFlow> => {
     positionName: data.interviewFlow.positionName,
     steps,
   };
+};
+
+// Fetches a position's candidates. The candidates endpoint returns a flat array
+// (no { candidates } envelope, unlike interviewflow), so no unwrapping is needed.
+// Throws on a non-ok response so the caller drives the no-crash fallback.
+export const getCandidates = async (id: number): Promise<Candidate[]> => {
+  const response = await fetch(`${API_BASE_URL}/position/${id}/candidates`);
+
+  if (!response.ok) {
+    throw new Error("Failed to fetch the candidates");
+  }
+
+  return (await response.json()) as Candidate[];
 };

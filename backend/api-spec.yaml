@@ -210,8 +210,18 @@ paths:
                       type: string
                     currentInterviewStep:
                       type: string
+                      description: Current interview stage name (for display).
+                    currentInterviewStepId:
+                      type: integer
+                      description: Numeric id of the current interview stage; key used to place the candidate in its kanban column (ADR 20260908).
                     averageScore:
                       type: number
+                    id:
+                      type: integer
+                      description: Candidate id.
+                    applicationId:
+                      type: integer
+                      description: Application id; used by the stage-update endpoint.
         '404':
           description: Position not found
         '500':

@@ -111,3 +111,18 @@ Antes de redactar, lee la épica (00-epic-position-kanban.md) para el alcance, l
 **Por qué funcionó.** El Reality map de la HU ya fijaba la doble anidación y la ausencia de axios, así que el spec/design partieron de rutas y campos reales; el TDD por capas (servicio → componente) mantuvo cada paso en un turno.
 
 **Ajuste humano.** Decidiste ramificar HU-02 desde `origin/feature/access-position-detail` (el shell HU-1 no estaba en `frontend-CRN`). Para respetar la regla 4, los tests HU-1 quedaron intactos y los de HU-02 se añadieron en `PositionDetail.flow.test.tsx` (el componente captura el rechazo del fetch, así los tests HU-1 siguen verde sin mock).
+
+---
+
+### Prompt 8 — HU-03 ver candidatos en su fase (opsx:propose + opsx:apply)
+
+```
+/opsx:propose user-stories/HU-03-view-candidates-in-stage.md
+/opsx:apply
+```
+
+**Resultado.** Change `view-candidates-in-stage`. Backend: un campo aditivo `currentInterviewStepId: app.currentInterviewStep` en la proyección de candidatos (el FK ya existía en DB). Frontend TDD: `getCandidates(id)` + tipo `Candidate` (retiene `id`/`applicationId`/`currentInterviewStepId` para HU-4), `CandidateCard.tsx` (nombre + score numérico + visual de pips 0–5, el 0 se pinta como cero relleno) y extensión de `PositionDetail.tsx` (agrupa por `currentInterviewStepId` y coloca cada tarjeta en la columna con ese id). Backend 5/5, frontend 24/24, `tsc` limpio, E2E Playwright (happy `/positions/1` con dos candidatos en la misma fase por id + score 0; fallo `/positions/999` sin crash).
+
+**Por qué funcionó.** El Reality map y la ADR 20260908 ya habían decidido el emparejamiento por id numérico (no por nombre) y que la respuesta es un array plano; el spec/design partieron de eso y el fallback de id desconocido (omitir + `console.warn`) quedó fijado como decisión única y consistente.
+
+**Ajuste humano.** El emparejamiento por `id` (no por nombre de fase) lo respalda la ADR: en los datos reales dos candidatos comparten la fase "Technical Interview" y se ubican bien porque la clave de unión es el id. Los tests HU-2 de `PositionDetail.flow.test.tsx` solo se ampliaron con un stub del nuevo `getCandidates` (sin debilitar asserts, regla 4).

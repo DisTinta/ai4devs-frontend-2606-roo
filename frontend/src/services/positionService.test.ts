@@ -1,4 +1,4 @@
-import { getInterviewFlow } from "./positionService";
+import { getInterviewFlow, getCandidates, Candidate } from "./positionService";
 
 // Backend response is double-nested (positionController wraps a value that
 // already carries positionName + interviewFlow). Fixtures mirror that shape.
@@ -71,5 +71,43 @@ describe("positionService.getInterviewFlow", () => {
     mockFetchOnce({}, false);
 
     await expect(getInterviewFlow(999)).rejects.toThrow();
+  });
+});
+
+describe("positionService.getCandidates", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("returns the flat candidates array typed, retaining ids for HU-4", async () => {
+    const payload: Candidate[] = [
+      {
+        fullName: "Ada Lovelace",
+        currentInterviewStep: "Technical",
+        currentInterviewStepId: 11,
+        averageScore: 4,
+        id: 20,
+        applicationId: 2,
+      },
+    ];
+    mockFetchOnce(payload);
+
+    const candidates = await getCandidates(1);
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3010/position/1/candidates",
+    );
+    // Flat array, no unwrapping.
+    expect(candidates).toEqual(payload);
+    // ids retained on the client model even if unshown (HU-4 needs them).
+    expect(candidates[0].id).toBe(20);
+    expect(candidates[0].applicationId).toBe(2);
+    expect(candidates[0].currentInterviewStepId).toBe(11);
+  });
+
+  it("throws when the response is not ok", async () => {
+    mockFetchOnce({}, false);
+
+    await expect(getCandidates(999)).rejects.toThrow();
   });
 });
