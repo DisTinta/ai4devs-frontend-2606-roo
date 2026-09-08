@@ -1,40 +1,4 @@
-# HU-6 — Uso en móvil
-
-**Épica:** Vista Position — Kanban de candidatos  
-**Origen:** enunciado S10 (responsive: fases en vertical a ancho completo en móvil)
-
-## Historia
-
-**Como** reclutador  
-**quiero** usar el tablero desde el móvil  
-**para** revisar y mover candidatos fuera del escritorio.
-
-## Criterios de aceptación
-
-- [ ] En **escritorio**, las fases se muestran en **horizontal** (con scroll horizontal si no caben en el viewport).
-- [ ] En **móvil** (por debajo del breakpoint acordado con el diseño existente / Bootstrap), las fases se **apilan en vertical** ocupando el **ancho completo**, como pide el enunciado.
-- [ ] El título y el control de volver siguen usables en viewport estrecho (no se solapan ni quedan inaccesibles).
-- [ ] El **arrastre funciona con eventos táctiles**, no solo con ratón (cuando HU-4 esté activa): se puede cambiar de fase en dispositivo táctil o emulando touch.
-
-## Non-goals
-
-- No rediseñar el menú global ni el listado de posiciones.
-- No añadir una app nativa ni PWA.
-
-## Contexto técnico
-
-- Proyecto usa Bootstrap 5 / react-bootstrap: reutilizar grid/utilidades responsive.
-- Validar que la librería DnD elegida en T-2 soporte pointer/touch.
-
-## Estimación
-
-**S** — layout responsive + verificación táctil del DnD.
-
----
-
-<!-- The section below is an AI-generated enrichment draft. Review against the real system before accepting. -->
-
-# [enhanced] HU-6 — Mobile use
+# HU-6 — Mobile use
 
 ## Reality map
 
