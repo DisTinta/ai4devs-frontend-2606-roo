@@ -29,3 +29,6 @@ yarn-error.log*
 # sdd-harness-kit
 .claude/settings.local.json
 .worktrees/
+
+# Playwright MCP scratch output
+.playwright-mcp/
