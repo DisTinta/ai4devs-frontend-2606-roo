@@ -68,7 +68,7 @@ Verified against this repository. If a command is not listed, do not invent one.
 
 ## Operational constraints
 
-- Never commit `.env`, `.env` contents, tokens, or PII.
+- Never commit **new** `.env` contents, tokens, or PII. (Exception: the existing tracked `.env` and `backend/.env` are intentional AI4Devs S10 exercise fixtures — see Gotchas. Do not treat them as a leak, but do not add new secrets either.)
 - Do not edit anything under `openspec/` as output of implementation (it is workflow input once OpenSpec is initialised).
 - Do not add dependencies without justifying them in the PR.
 - Do not force-push. Ever.
@@ -83,6 +83,7 @@ Verified against this repository. If a command is not listed, do not invent one.
 - Compose does **not** start Node processes — only Postgres.
 - Domain models under `backend/src/domain/models` currently own Prisma calls (no separate infrastructure folder).
 - Frontend services hard-code `http://localhost:3010` in places — keep that consistent in local work.
-- `frontend/src/services/candidateService.js` imports `axios`; confirm the dependency is present in `frontend/package.json` before adding more call sites (it may be missing from the manifest).
+- Frontend services use the **native `fetch` API**, not axios (axios is not installed; see `docs/adr/20260908-frontend-http-native-fetch.md`). `candidateService.js` was migrated from an undeclared axios import to `fetch`.
+- **`.env` credentials are exercise fixtures:** `.env` and `backend/.env` (DB_USER, DB_PASSWORD, DATABASE_URL) are tracked since the Initial commit on purpose — AI4Devs S10 gave them; this is a practice repo, not production. No untracking/rotation needed.
 - OpenSpec may still need `openspec init` after the harness install.
 - Kit skills/agents are copies under `.claude` / `.cursor` when symlinks are unavailable: edit `ai-specs/` and run `.claude\sync-artifacts.ps1` to propagate.
