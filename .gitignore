@@ -26,3 +26,6 @@ yarn-error.log*
 .vscode
 
 # .env
+# sdd-harness-kit
+.claude/settings.local.json
+.worktrees/

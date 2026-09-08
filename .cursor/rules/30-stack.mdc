@@ -1,0 +1,31 @@
+---
+description: Capas Express+Prisma y React CRA de este monorepo
+globs: ["backend/**/*.{ts,js}", "frontend/src/**/*.{js,jsx,ts,tsx}"]
+alwaysApply: false
+---
+
+# Stack — Express + Prisma + React CRA
+
+## Backend (orden de una unidad vertical)
+1. `backend/src/**/*.test.ts` — test en rojo primero.
+2. `backend/src/application/validator.ts` — forma del input.
+3. `backend/src/domain/models/<Entity>.ts` — entidad (hoy también persiste con Prisma).
+4. `backend/src/application/services/<name>Service.ts` — caso de uso.
+5. `backend/src/presentation/controllers/<name>Controller.ts` — HTTP: leer, delegar, responder.
+6. `backend/src/routes/<name>Routes.ts` — registro de ruta.
+
+## Reglas duras
+- Controllers sin Prisma y sin lógica de negocio.
+- Services sin imports de `express` ni códigos HTTP.
+- No inventar carpeta `infrastructure/` salvo que el ticket lo pida.
+- Migraciones: solo ficheros nuevos; nunca editar las ya aplicadas.
+- No leer ni pegar `.env`. No `docker compose down -v` ni `prisma migrate reset` sin permiso humano explícito.
+
+## Frontend
+- CRA + Bootstrap en `frontend/src` (`components/`, `services/`).
+- API local en `http://localhost:3010`. UI en `:3000`.
+- No introducir Vite, Tailwind ni Vitest en este repo.
+
+## Runtime
+- Docker = solo Postgres. Luego backend, luego frontend.
+- `CMD_TEST` (Jest backend) no requiere Docker: Prisma está mockeado.
