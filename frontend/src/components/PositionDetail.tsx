@@ -25,7 +25,7 @@ import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import CandidateCard from "./CandidateCard";
 
-const knownPositionIds = mockPositions.map((position) => position.id);
+const knownPositionIds = new Set(mockPositions.map((position) => position.id));
 
 // Per-fetch status so an empty success (`[]`) is never confused with a failure
 // (HU-5). `data` carries the last resolved value; `error` marks a rejection.
@@ -52,8 +52,10 @@ const groupByStageId = (
 
   candidates.forEach((candidate) => {
     if (!known.has(candidate.currentInterviewStepId)) {
+      // Coerce to numbers before logging so no user-controlled string can be
+      // injected into the log stream (SonarQube S5145).
       console.warn(
-        `Candidate ${candidate.id} has an unknown stage id ${candidate.currentInterviewStepId}; omitting from the board.`,
+        `Candidate ${Number(candidate.id)} has an unknown stage id ${Number(candidate.currentInterviewStepId)}; omitting from the board.`,
       );
       return;
     }
@@ -123,7 +125,7 @@ const PositionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const numericId = Number(id);
   const isKnown =
-    Number.isInteger(numericId) && knownPositionIds.includes(numericId);
+    Number.isInteger(numericId) && knownPositionIds.has(numericId);
 
   const [flowState, setFlowState] = useState<FlowState>({ status: "loading" });
   const [candidatesState, setCandidatesState] = useState<CandidatesState>({

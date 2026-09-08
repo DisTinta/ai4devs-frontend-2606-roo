@@ -10,6 +10,15 @@ type Position = {
   status: "Abierto" | "Contratado" | "Cerrado" | "Borrador";
 };
 
+// Bootstrap badge colour per status. A lookup avoids nested ternaries in JSX
+// (SonarQube S3358). Unknown statuses fall back to a neutral warning colour.
+const STATUS_BADGE: Record<Position["status"], string> = {
+  Abierto: "bg-warning",
+  Contratado: "bg-success",
+  Cerrado: "bg-warning",
+  Borrador: "bg-secondary",
+};
+
 export const mockPositions: Position[] = [
   {
     id: 1,
@@ -75,7 +84,7 @@ const Positions: React.FC = () => {
                   <strong>Deadline:</strong> {position.deadline}
                 </Card.Text>
                 <span
-                  className={`badge ${position.status === "Abierto" ? "bg-warning" : position.status === "Contratado" ? "bg-success" : position.status === "Borrador" ? "bg-secondary" : "bg-warning"} text-white`}
+                  className={`badge ${STATUS_BADGE[position.status]} text-white`}
                 >
                   {position.status}
                 </span>

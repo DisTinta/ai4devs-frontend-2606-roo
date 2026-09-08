@@ -16,7 +16,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: changes
         with:
           filters: |
@@ -47,7 +47,7 @@ jobs:
 
       - name: Install dependencies
         if: steps.changes.outputs.frontend == 'true'
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint
         if: steps.changes.outputs.frontend == 'true'
