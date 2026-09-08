@@ -152,3 +152,16 @@ Antes de redactar, lee la épica (00-epic-position-kanban.md) para el alcance, l
 **Por qué funcionó.** HU-2/3 ya habían dejado explícito "estados ricos = HU-5" y solo garantizaban "no crash"; el modelo de estado por-fetch resolvió el único punto de diseño real: distinguir `[]` (éxito vacío) de rechazo, que antes se colapsaban en `[]`.
 
 **Ajuste humano.** El modelo nuevo salió retrocompatible: los tests HU-2/3/4 siguieron verdes sin tocarlos porque el shell HU-1 se mantiene montado en todos los estados y las columnas se siguen renderizando en éxito. El spinner de carga conjunta (Escenario A) se verifica en el unit test (en local resuelve demasiado rápido para capturarlo en navegador). Id de posición desconocido: cortocircuito a "no encontrada" sin fetch.
+
+### Prompt 11 — HU-06 uso en móvil (opsx:propose + opsx:apply)
+
+```
+/opsx:propose  (inferido HU-06 del contexto)
+/opsx:apply
+```
+
+**Resultado.** Change `mobile-use`, capability nueva `position-board-mobile`, frontend-only. `PositionDetail.tsx`: layout responsive (columnas apiladas full-width < md, horizontales con `overflow-x-auto` a md+ vía `d-flex flex-column flex-md-row`, cada columna `flex-md-shrink-0` min 16rem), header con `text-break` para no solaparse, y sensores dnd-kit `MouseSensor` (inmediato) + `TouchSensor` con activation constraint (delay 200ms/tolerance 5) para long-press. Unit 40/40 + build OK. E2E Playwright real: viewport 800 (horizontal + scroll, página no rota), 375 (apilado full-width + header sin solape), y touch por CDP `Input.dispatchTouchEvent`: long-press mueve Jane y persiste el PUT; swipe corto (<200ms) no arrastra.
+
+**Por qué funcionó.** HU-2/HU-4 ya dejaban el layout y el DnD montados; solo faltaba la capa responsive + sensor touch. La ADR de dnd-kit ya cubría `TouchSensor`, así que no hubo dependencia nueva.
+
+**Ajuste humano.** El enunciado decía "PointerSensor para ratón"; se usó `MouseSensor` + `TouchSensor` porque un único `PointerSensor` aplica el mismo activation constraint a todo input (retardaría también el ratón). El E2E de layout detectó que `overflow-md-auto` no existe en el build de Bootstrap → cambiado a `overflow-x-auto` (corregido también en design.md). El wrapper de columna dejó de ser `Col` de react-bootstrap y pasó a `div.board-column` (el substring "col" mantiene vivos los helpers `[class*='col']` de los tests). El drag táctil no corre en jsdom: los escenarios D/E se validan en Playwright (CDP), no en unit.

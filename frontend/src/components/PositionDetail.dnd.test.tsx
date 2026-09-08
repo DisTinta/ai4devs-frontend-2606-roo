@@ -41,6 +41,11 @@ jest.mock("@dnd-kit/core", () => ({
     };
   },
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  // HU-6 configures sensors; stub them so this mock module stays complete.
+  MouseSensor: function MouseSensor() {},
+  TouchSensor: function TouchSensor() {},
+  useSensor: (sensor: any, options?: any) => ({ sensor, options }),
+  useSensors: (...sensors: any[]) => sensors,
 }));
 
 const mockGetInterviewFlow = getInterviewFlow as jest.MockedFunction<
