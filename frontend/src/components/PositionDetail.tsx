@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { Container, Row, Col } from "react-bootstrap";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Container, Row, Col, Spinner, Alert, Button } from "react-bootstrap";
 import { Link, useParams } from "react-router-dom";
 import {
   DndContext,
@@ -18,6 +18,18 @@ import {
 import CandidateCard from "./CandidateCard";
 
 const knownPositionIds = mockPositions.map((position) => position.id);
+
+// Per-fetch status so an empty success (`[]`) is never confused with a failure
+// (HU-5). `data` carries the last resolved value; `error` marks a rejection.
+type FetchStatus = "loading" | "success" | "error";
+interface FlowState {
+  status: FetchStatus;
+  data?: InterviewFlow;
+}
+interface CandidatesState {
+  status: FetchStatus;
+  data: Candidate[];
+}
 
 // Groups candidates by their numeric stage id, dropping any whose id is absent
 // from the loaded flow's step ids (the documented fallback: omit + console.warn,
@@ -68,6 +80,8 @@ const DraggableCard: React.FC<{
 
 // A stage column that accepts dropped cards. Its droppable id is the numeric
 // step id, so the drop handler reads the destination stage straight off `over`.
+// An empty column renders its placeholder as a child, so the column stays a
+// valid drop target with zero cards (HU-5 keeps it droppable for HU-4).
 const DroppableColumn: React.FC<{
   stepId: number;
   title: string;
@@ -89,51 +103,68 @@ const PositionDetail: React.FC = () => {
   const isKnown =
     Number.isInteger(numericId) && knownPositionIds.includes(numericId);
 
-  const [flow, setFlow] = useState<InterviewFlow | null>(null);
-  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [flowState, setFlowState] = useState<FlowState>({ status: "loading" });
+  const [candidatesState, setCandidatesState] = useState<CandidatesState>({
+    status: "loading",
+    data: [],
+  });
   // Candidate ids whose stage-change request is in flight; those cards are
   // locked against further moves until the request settles (HU-4 scenario E).
   const [locked, setLocked] = useState<Set<number>>(new Set());
-  const [error, setError] = useState<string | null>(null);
+  // Per-card move error (HU-4 rollback message), distinct from fetch errors.
+  const [moveError, setMoveError] = useState<string | null>(null);
 
+  const mounted = useRef(true);
   useEffect(() => {
-    let active = true;
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
 
-    // On failure/404 the shell stays mounted and no columns render (HU-5 owns
-    // the rich loading/error/empty states; HU-2 only guarantees "no crash").
+  // Independent fetch runners so a retry re-issues only the failed request
+  // (HU-5 granular retry).
+  const loadFlow = useCallback(() => {
+    setFlowState({ status: "loading" });
     getInterviewFlow(numericId)
       .then((result) => {
-        if (active) {
-          setFlow(result);
+        if (mounted.current) {
+          setFlowState({ status: "success", data: result });
         }
       })
       .catch(() => {
-        if (active) {
-          setFlow(null);
+        if (mounted.current) {
+          setFlowState({ status: "error" });
         }
       });
-
-    // Candidates are fetched independently: a candidates failure leaves the
-    // HU-2 columns mounted with no cards (HU-3 only guarantees "no crash").
-    getCandidates(numericId)
-      .then((result) => {
-        if (active) {
-          setCandidates(result);
-        }
-      })
-      .catch(() => {
-        if (active) {
-          setCandidates([]);
-        }
-      });
-
-    return () => {
-      active = false;
-    };
   }, [numericId]);
 
+  const loadCandidates = useCallback(() => {
+    setCandidatesState({ status: "loading", data: [] });
+    getCandidates(numericId)
+      .then((result) => {
+        if (mounted.current) {
+          setCandidatesState({ status: "success", data: result });
+        }
+      })
+      .catch(() => {
+        if (mounted.current) {
+          setCandidatesState({ status: "error", data: [] });
+        }
+      });
+  }, [numericId]);
+
+  useEffect(() => {
+    // Unknown ids never hit the network; they render the not-found shell.
+    if (!isKnown) {
+      return;
+    }
+    loadFlow();
+    loadCandidates();
+  }, [isKnown, loadFlow, loadCandidates]);
+
   // Drop handler: move the card optimistically, persist, and roll back on
-  // failure. Same-column drops and in-flight cards are no-ops (scenarios D/E).
+  // failure. Same-column drops and in-flight cards are no-ops (HU-4).
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over) {
@@ -150,23 +181,26 @@ const PositionDetail: React.FC = () => {
     const applicationId = Number(data.applicationId);
 
     if (destStepId === sourceStepId) {
-      return; // Same-column drop: no request, nothing changes (scenario D).
+      return; // Same-column drop: no request, nothing changes (HU-4).
     }
     if (locked.has(candidateId)) {
-      return; // Already moving: ignore until it settles (scenario E).
+      return; // Already moving: ignore until it settles (HU-4).
     }
 
-    // Optimistic move: the card appears in the destination column immediately,
-    // before the response arrives (scenario B).
-    setCandidates((prev) =>
-      prev.map((candidate) =>
-        candidate.id === candidateId
-          ? { ...candidate, currentInterviewStepId: destStepId }
-          : candidate,
-      ),
-    );
+    const moveTo = (stepId: number) =>
+      setCandidatesState((prev) => ({
+        ...prev,
+        data: prev.data.map((candidate) =>
+          candidate.id === candidateId
+            ? { ...candidate, currentInterviewStepId: stepId }
+            : candidate,
+        ),
+      }));
+
+    // Optimistic move before the response arrives (HU-4).
+    moveTo(destStepId);
     setLocked((prev) => new Set(prev).add(candidateId));
-    setError(null);
+    setMoveError(null);
 
     const unlock = () =>
       setLocked((prev) => {
@@ -178,25 +212,106 @@ const PositionDetail: React.FC = () => {
     updateCandidateStage(candidateId, applicationId, destStepId)
       .then(unlock)
       .catch(() => {
-        // Roll back to the original column and surface the error (scenario C).
-        setCandidates((prev) =>
-          prev.map((candidate) =>
-            candidate.id === candidateId
-              ? { ...candidate, currentInterviewStepId: sourceStepId }
-              : candidate,
-          ),
-        );
+        moveTo(sourceStepId); // Roll back to the original column (HU-4).
         unlock();
-        setError("No se pudo mover al candidato. Inténtalo de nuevo.");
+        setMoveError("No se pudo mover al candidato. Inténtalo de nuevo.");
       });
   };
 
-  const groups = flow
+  const flowData = flowState.status === "success" ? flowState.data : undefined;
+  const groups = flowData
     ? groupByStageId(
-        candidates,
-        flow.steps.map((step) => step.id),
+        candidatesState.data,
+        flowData.steps.map((step) => step.id),
       )
     : new Map<number, Candidate[]>();
+
+  const isLoading =
+    isKnown &&
+    (flowState.status === "loading" || candidatesState.status === "loading");
+  const title = flowData ? flowData.positionName : `Posición ${id}`;
+
+  const renderContent = () => {
+    if (!isKnown) {
+      return <p className="text-muted">Posición no encontrada.</p>;
+    }
+    if (isLoading) {
+      return (
+        <div className="text-center my-5">
+          <Spinner animation="border" role="status">
+            <span className="visually-hidden">Cargando…</span>
+          </Spinner>
+        </div>
+      );
+    }
+    if (flowState.status === "error") {
+      return (
+        <Alert variant="danger">
+          No se pudo cargar el proceso de la posición.{" "}
+          <Button
+            variant="link"
+            className="p-0 align-baseline"
+            onClick={loadFlow}
+          >
+            Reintentar
+          </Button>
+        </Alert>
+      );
+    }
+    // Flow loaded: render the board. Candidates drive cards / empty / error.
+    const flow = flowState.data as InterviewFlow;
+    const candidatesEmpty =
+      candidatesState.status === "success" && candidatesState.data.length === 0;
+
+    return (
+      <>
+        {candidatesState.status === "error" && (
+          <Alert variant="danger">
+            No se pudieron cargar los candidatos.{" "}
+            <Button
+              variant="link"
+              className="p-0 align-baseline"
+              onClick={loadCandidates}
+            >
+              Reintentar
+            </Button>
+          </Alert>
+        )}
+        {candidatesEmpty && (
+          <p className="text-muted">No hay candidatos en esta posición.</p>
+        )}
+        <DndContext onDragEnd={handleDragEnd}>
+          <Row>
+            {flow.steps.map((step) => {
+              const cards = groups.get(step.id) ?? [];
+              return (
+                <DroppableColumn
+                  key={step.id}
+                  stepId={step.id}
+                  title={step.name}
+                >
+                  {cards.length === 0 ? (
+                    <p className="text-muted small" data-testid="empty-column">
+                      Sin candidatos en esta fase.
+                    </p>
+                  ) : (
+                    cards.map((candidate) => (
+                      <DraggableCard
+                        key={candidate.applicationId}
+                        candidate={candidate}
+                        stepId={step.id}
+                        disabled={locked.has(candidate.id)}
+                      />
+                    ))
+                  )}
+                </DroppableColumn>
+              );
+            })}
+          </Row>
+        </DndContext>
+      </>
+    );
+  };
 
   return (
     <Container className="mt-5">
@@ -208,35 +323,14 @@ const PositionDetail: React.FC = () => {
         >
           ←
         </Link>
-        <h2 className="mb-0">{flow ? flow.positionName : `Posición ${id}`}</h2>
+        <h2 className="mb-0">{title}</h2>
       </div>
-      {error && (
+      {moveError && (
         <div role="alert" className="alert alert-danger">
-          {error}
+          {moveError}
         </div>
       )}
-      {flow ? (
-        <DndContext onDragEnd={handleDragEnd}>
-          <Row>
-            {flow.steps.map((step) => (
-              <DroppableColumn key={step.id} stepId={step.id} title={step.name}>
-                {(groups.get(step.id) ?? []).map((candidate) => (
-                  <DraggableCard
-                    key={candidate.applicationId}
-                    candidate={candidate}
-                    stepId={step.id}
-                    disabled={locked.has(candidate.id)}
-                  />
-                ))}
-              </DroppableColumn>
-            ))}
-          </Row>
-        </DndContext>
-      ) : isKnown ? (
-        <p className="text-muted">Detalle de la posición en construcción.</p>
-      ) : (
-        <p className="text-muted">Posición no encontrada.</p>
-      )}
+      {renderContent()}
     </Container>
   );
 };
