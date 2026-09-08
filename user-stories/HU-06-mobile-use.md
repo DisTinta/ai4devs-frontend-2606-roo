@@ -1,0 +1,126 @@
+# HU-6 — Uso en móvil
+
+**Épica:** Vista Position — Kanban de candidatos  
+**Origen:** enunciado S10 (responsive: fases en vertical a ancho completo en móvil)
+
+## Historia
+
+**Como** reclutador  
+**quiero** usar el tablero desde el móvil  
+**para** revisar y mover candidatos fuera del escritorio.
+
+## Criterios de aceptación
+
+- [ ] En **escritorio**, las fases se muestran en **horizontal** (con scroll horizontal si no caben en el viewport).
+- [ ] En **móvil** (por debajo del breakpoint acordado con el diseño existente / Bootstrap), las fases se **apilan en vertical** ocupando el **ancho completo**, como pide el enunciado.
+- [ ] El título y el control de volver siguen usables en viewport estrecho (no se solapan ni quedan inaccesibles).
+- [ ] El **arrastre funciona con eventos táctiles**, no solo con ratón (cuando HU-4 esté activa): se puede cambiar de fase en dispositivo táctil o emulando touch.
+
+## Non-goals
+
+- No rediseñar el menú global ni el listado de posiciones.
+- No añadir una app nativa ni PWA.
+
+## Contexto técnico
+
+- Proyecto usa Bootstrap 5 / react-bootstrap: reutilizar grid/utilidades responsive.
+- Validar que la librería DnD elegida en T-2 soporte pointer/touch.
+
+## Estimación
+
+**S** — layout responsive + verificación táctil del DnD.
+
+---
+
+<!-- The section below is an AI-generated enrichment draft. Review against the real system before accepting. -->
+
+# [enhanced] HU-6 — Mobile use
+
+## Reality map
+
+### Exists
+- `frontend/package.json` — `bootstrap ^5.3.3` + `react-bootstrap ^2.10.2` → responsive grid/utilities (`Row/Col`, breakpoints, `d-flex`).
+- `frontend/src/components/Positions.tsx` — uses `Row`/`Col md={...}` → responsive reference pattern.
+- `frontend/src/components/PositionDetail.tsx` — column layout to make responsive (HU-1/2 `to-create`).
+- `@dnd-kit/core@6.3.1` — HU-4 (`to-create`) + [ADR 20260908 — dnd-kit](../docs/adr/20260908-drag-and-drop-library-dnd-kit.md): `PointerSensor`/`TouchSensor` provide touch support.
+- `@testing-library/react` + `user-event` — test infra. Playwright MCP available for a real touch demo (`/show-spec-working`).
+
+### To create
+- Responsive column layout in `PositionDetail.tsx` — horizontal (flex + horizontal scroll) on desktop; stacked full-width **below the `md` (768px)** breakpoint on mobile, via Bootstrap utilities — `to-create`.
+- dnd-kit sensor config in HU-4's `DndContext`: `TouchSensor` with an **activation constraint** (long-press `delay ~200ms` + `tolerance`) so vertical page scroll is preserved and only a held press starts a drag — `to-create`/extend HU-4.
+- Responsive header (title + back control) with no overlap on narrow viewport — `to-create`.
+- Tests: media-query layout is not assertable in jsdom; RTL checks responsive classes, and the real stacking/touch drag is validated with Playwright MCP (`/show-spec-working`) — `to-create` + limitation note.
+
+### Ticket examples checked
+- The ticket cites no routes/paths → nothing FOUND/NOT FOUND. Builds on columns (HU-2) and DnD (HU-4).
+
+## 1. User story
+
+As a recruiter, I want to use the board from my phone,
+so that I can review and move candidates away from the desktop.
+
+## 2. Acceptance criteria
+
+### Scenario A — Desktop: horizontal stages (happy path)
+Given a viewport ≥ 768px (md and up)
+When the board renders
+Then the stage columns are laid out horizontally
+And if they exceed the viewport width, the column area scrolls horizontally (the page layout is not broken).
+
+### Scenario B — Mobile: stacked full-width (happy path)
+Given a viewport < 768px (below md)
+When the board renders
+Then the stage columns stack vertically, each taking full width.
+
+### Scenario C — Header usable on narrow viewport (edge)
+Given a viewport < 768px
+When the header renders
+Then the title and the back control remain visible, tappable and non-overlapping.
+
+### Scenario D — Touch drag moves stage (happy path, needs HU-4)
+Given HU-4 is active and a touch device (or emulated touch)
+When I long-press a card and drag it onto another column and release
+Then the card moves to that column and the stage-update PUT fires (per HU-4)
+And this works via touch events, not only mouse.
+
+### Scenario E — Long-press vs page scroll (edge)
+Given a touch device
+When I do a short swipe on the board area (no long-press)
+Then the page scrolls normally (the drag is not triggered)
+And only a held press (past the activation delay/tolerance) starts a drag.
+
+## 3. Technical context
+
+Frontend only (no backend). Extends HU-2 columns and HU-4 DnD:
+- Column layout in `PositionDetail.tsx`: use Bootstrap 5 responsive utilities — horizontal flex row
+  with horizontal scroll at ≥ `md`; stacked full-width columns below `md` (768px, matching the
+  `md={...}` convention in `Positions.tsx`).
+- dnd-kit `DndContext` (HU-4): configure `TouchSensor` (or `PointerSensor` with an activation
+  constraint) with `delay ~200ms` + `tolerance` so a short swipe scrolls the page and a held press
+  starts the drag. Keep `PointerSensor` for mouse.
+- Header: make title + back control wrap/resize cleanly on narrow viewport.
+- Tests: RTL asserts the responsive classes/props are applied; actual stacking and touch drag are
+  demonstrated with the Playwright MCP under `/show-spec-working` (emulate a mobile viewport +
+  touch), since jsdom has no layout/media-query engine.
+
+## 4. Non-goals
+- No redesign of the global menu or the positions list.
+- No native app and no PWA.
+- No backend changes.
+- No new DnD library — reuse `@dnd-kit/core` from HU-4 / the ADR.
+
+## 5. Labels and estimate
+- Labels: `area:frontend`, `type:feature`, `responsive`, `ux`.
+- Size: **S** — responsive layout + dnd-kit touch sensor config; depends on HU-2 (columns) and HU-4 (DnD).
+
+## INVEST
+Independent: partial — depends on HU-2 (columns) and HU-4 (DnD). Negotiable, Valuable, Estimable (S),
+Small (≤ half day), Testable (RTL for classes + Playwright MCP for touch/layout). Passes.
+
+## Resolved decisions
+- **Stack breakpoint = below `md` (768px)** — horizontal at ≥ md, stacked full-width below. Matches
+  `Positions.tsx` `md` usage.
+- **Touch drag = long-press** (`TouchSensor` activation `delay ~200ms` + tolerance) so vertical page
+  scroll is preserved; short swipe scrolls, held press drags.
+
+> ⚠️ These acceptance criteria are a first draft generated by AI. Review them against the real system before accepting them: the model does not know the legacy integration that breaks on Mondays, nor the business rule that only one person remembers.
