@@ -41,6 +41,8 @@ jest.mock("@dnd-kit/core", () => ({
     };
   },
   useDroppable: () => ({ setNodeRef: () => {}, isOver: false }),
+  // The drag overlay renders a floating clone; in the mock just render children.
+  DragOverlay: ({ children }: any) => children,
   // HU-6 configures sensors; stub them so this mock module stays complete.
   MouseSensor: function MouseSensor() {},
   TouchSensor: function TouchSensor() {},
