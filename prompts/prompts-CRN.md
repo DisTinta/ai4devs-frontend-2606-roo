@@ -7,7 +7,7 @@ Registro de prompts significativos del ejercicio (S10). Formato acordado: títul
 ### Prompt 1 — Instalar el SDD Harness Kit y adaptarlo al stack del repo
 
 ```
-Instala el SDD Harness Kit en este repositorio (ai4devs-frontend-2606-roo) y adáptalo al stack real:
+Instala el SDD Harness Kit (kit propio de instalación del harness - lo aprendido en las clases en AI4Devs) en este repositorio (ai4devs-frontend-2606-roo) y adáptalo al stack real:
 Express + Prisma + Jest en backend/, React CRA + Bootstrap en frontend/, Postgres solo en Docker Compose.
 Rellena project-context, sdd-harness.env y standards; deja un adaptador personal reutilizable en el propio repo.
 ```
@@ -126,3 +126,16 @@ Antes de redactar, lee la épica (00-epic-position-kanban.md) para el alcance, l
 **Por qué funcionó.** El Reality map y la ADR 20260908 ya habían decidido el emparejamiento por id numérico (no por nombre) y que la respuesta es un array plano; el spec/design partieron de eso y el fallback de id desconocido (omitir + `console.warn`) quedó fijado como decisión única y consistente.
 
 **Ajuste humano.** El emparejamiento por `id` (no por nombre de fase) lo respalda la ADR: en los datos reales dos candidatos comparten la fase "Technical Interview" y se ubican bien porque la clave de unión es el id. Los tests HU-2 de `PositionDetail.flow.test.tsx` solo se ampliaron con un stub del nuevo `getCandidates` (sin debilitar asserts, regla 4).
+
+### Prompt 9 — HU-04 mover candidato con drag & drop (opsx:propose + opsx:apply)
+
+```
+/opsx:propose user-stories/HU-04-move-candidate-drag-drop.md
+/opsx:apply
+```
+
+**Resultado.** Change `move-candidate-drag-drop`. Backend aditivo: `router.put('/:id/stage', updateCandidateStageController)` junto al `PUT /:id` existente (mismo controller/service, sin romper consumidores). Frontend: dependencia `@dnd-kit/core@6.3.1`, `positionService.updateCandidateStage` (fetch PUT nativo), y `PositionDetail.tsx` con `DndContext` + columnas droppable (id = step) + tarjetas draggable; `onDragEnd` mueve la tarjeta de forma optimista, revierte y muestra error si el PUT falla, ignora el drop en la misma columna y bloquea la tarjeta mientras su petición está en vuelo. Backend 9/9 + `tsc` limpio; frontend 32/32 + build OK. E2E Playwright real: drag persiste (step 2→3) y fallo forzado revierte con alerta sin persistir; estado restaurado.
+
+**Por qué funcionó.** El Reality map ya confirmaba que el controller/service de cambio de fase existían y solo faltaba exponer la ruta; el spec/design partieron de "reutilizar, no reescribir". La ADR 20260908 fijó dnd-kit y la clave de fase por id numérico, así que el body `{ applicationId, currentInterviewStep(=id) }` quedó determinado sin ambigüedad.
+
+**Ajuste humano.** El drag real de dnd-kit no corre en jsdom, así que `PositionDetail.dnd.test.tsx` mockea `@dnd-kit/core` capturando `onDragEnd` y los datos que registra cada tarjeta (el wiring del componente sigue bajo test; solo se sustituye la mecánica de la librería). El drag real se cubre en el E2E de Playwright. La rama HU-04 se creó sobre `feature/view-candidates-in-stage` (que tiene HU-3), no sobre `frontend-CRN` (que aún no lo integra). Se eliminó un import muerto pre-existente (`InputGroup` en `AddCandidateForm.js`) que rompía el build con `CI=true`.

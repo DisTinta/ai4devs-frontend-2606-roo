@@ -1,4 +1,9 @@
-import { getInterviewFlow, getCandidates, Candidate } from "./positionService";
+import {
+  getInterviewFlow,
+  getCandidates,
+  updateCandidateStage,
+  Candidate,
+} from "./positionService";
 
 // Backend response is double-nested (positionController wraps a value that
 // already carries positionName + interviewFlow). Fixtures mirror that shape.
@@ -109,5 +114,40 @@ describe("positionService.getCandidates", () => {
     mockFetchOnce({}, false);
 
     await expect(getCandidates(999)).rejects.toThrow();
+  });
+});
+
+describe("positionService.updateCandidateStage", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("PUTs to /candidates/:id/stage with the numeric step id and resolves on ok", async () => {
+    mockFetchOnce({ message: "Candidate stage updated successfully" });
+
+    await expect(updateCandidateStage(7, 3, 11)).resolves.toBeUndefined();
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "http://localhost:3010/candidates/7/stage",
+      {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ applicationId: 3, currentInterviewStep: 11 }),
+      },
+    );
+  });
+
+  it("rejects when the response is not ok", async () => {
+    mockFetchOnce({}, false);
+
+    await expect(updateCandidateStage(7, 3, 11)).rejects.toThrow();
+  });
+
+  it("rejects when fetch fails at the network level", async () => {
+    global.fetch = jest
+      .fn()
+      .mockRejectedValueOnce(new Error("network")) as unknown as typeof fetch;
+
+    await expect(updateCandidateStage(7, 3, 11)).rejects.toThrow();
   });
 });
