@@ -57,7 +57,7 @@ Verified against this repository. If a command is not listed, do not invent one.
 
 - Backend Jest + ts-jest; tests live next to sources under `backend/src/**/*.test.ts`.
 - Current suite mocks `@prisma/client` — tests run without Postgres. Stop hook uses `CMD_TEST` (`KIT_SKIP_STOP_TESTS=0`).
-- Frontend Jest via the frontend package; config referenced as `jest.config.js` in scripts.
+- Frontend Jest via the frontend package. `frontend/jest.config.js` (jsdom, babel-jest + `babel-preset-react-app`, CSS→`identity-obj-proxy`, `src/setupTests.ts` for jest-dom) — added in `access-position-detail`; the `test` script had referenced it before the file existed. `@testing-library/user-event` is **v13** (no `userEvent.setup()`; call `userEvent.click(...)` directly). RTL tests render components under `MemoryRouter`.
 - Do not convert `CMD_TEST` into a live-DB integration suite without an explicit decision.
 
 ## Branch and ticket conventions
@@ -83,6 +83,7 @@ Verified against this repository. If a command is not listed, do not invent one.
 - Compose does **not** start Node processes — only Postgres.
 - Domain models under `backend/src/domain/models` currently own Prisma calls (no separate infrastructure folder).
 - Frontend services hard-code `http://localhost:3010` in places — keep that consistent in local work.
+- The positions list is a **mock** (`mockPositions` in `Positions.tsx`) with hard-coded `id`s (1–3); there is no `GET /positions` list endpoint. `/positions/:id` addresses the detail view by that mock id. A later HU can swap the id source behind the same route.
 - Frontend services use the **native `fetch` API**, not axios (axios is not installed; see `docs/adr/20260908-frontend-http-native-fetch.md`). `candidateService.js` was migrated from an undeclared axios import to `fetch`.
 - **`.env` credentials are exercise fixtures:** `.env` and `backend/.env` (DB_USER, DB_PASSWORD, DATABASE_URL) are tracked since the Initial commit on purpose — AI4Devs S10 gave them; this is a practice repo, not production. No untracking/rotation needed.
 - OpenSpec may still need `openspec init` after the harness install.

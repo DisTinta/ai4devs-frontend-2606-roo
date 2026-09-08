@@ -26,6 +26,8 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "jest --config jest.config.js",
+    "lint": "eslint src --ext .ts,.tsx,.js,.jsx",
+    "typecheck": "tsc --noEmit",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
