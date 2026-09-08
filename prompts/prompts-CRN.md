@@ -81,3 +81,33 @@ Antes de redactar, lee la épica (00-epic-position-kanban.md) para el alcance, l
 **Por qué funcionó.** Delegar en el skill (que ya obliga a Reality map antes de redactar) + leer la épica primero mantiene el alcance y hace que los criterios citen rutas y campos reales, no los ejemplos del enunciado.
 
 **Ajuste humano.** Decisiones de producto/arquitectura que resolví con tu confirmación: escala de score sobre 5; mapeo por **id** de fase (no por nombre) → ADR; `@dnd-kit/core` como librería DnD → ADR; `/stage` añadida junto a `PUT /:id`; carga conjunta + retry granular; breakpoint `md` + long-press táctil.
+
+---
+
+### Prompt 6 — HU-01 acceso al detalle de posición (opsx:propose + opsx:apply)
+
+```
+/opsx:propose user-stories/HU-01-access-position-detail.md
+/opsx:apply
+```
+
+**Resultado.** Change `access-position-detail` (proposal/spec/design/tasks, ya archivado en `openspec/changes/archive/2026-09-08-access-position-detail`). Implementación: ruta `/positions/:id` en `App.js`, shell `PositionDetail.tsx` (back control + título + región placeholder, sin crash en id desconocido), y cableado de "Ver proceso" en `Positions.tsx` (añadido `id` a `Position`/`mockPositions`, `key={position.id}`). Tests RTL `PositionDetail.test.tsx` + `Positions.test.tsx`; E2E Playwright (detalle id 1 + id desconocido). Sin dependencias nuevas ni cambios de backend.
+
+**Por qué funcionó.** El Reality map de la HU fijó que "Ver proceso" era un botón inerte y que no existe `GET /positions` (lista mock), así que el alcance quedó en routing + shell sin inventar backend, dejando el detalle real para HU-02+.
+
+**Ajuste humano.** Base de la nueva funcionalidad: la lista de posiciones sigue siendo mock con `id`s 1–3 (riesgo #5 de la épica); `/positions/:id` direcciona por ese id mock hasta que una HU posterior cambie la fuente.
+
+---
+
+### Prompt 7 — HU-02 ver proceso en columnas (opsx:propose + opsx:apply)
+
+```
+/opsx:propose user-stories/HU-02-view-process-in-columns.md
+/opsx:apply
+```
+
+**Resultado.** Change `view-process-in-columns` (proposal/spec/design/tasks) e implementación TDD: `positionService.ts` (fetch nativo, desanida la respuesta doble y ordena por `orderIndex`) + extensión del shell HU-1 `PositionDetail.tsx` (título = `positionName`, una columna por fase). 15/15 tests verde, `tsc` limpio, E2E Playwright (happy `/positions/1` + fallo `/positions/999` sin crash).
+
+**Por qué funcionó.** El Reality map de la HU ya fijaba la doble anidación y la ausencia de axios, así que el spec/design partieron de rutas y campos reales; el TDD por capas (servicio → componente) mantuvo cada paso en un turno.
+
+**Ajuste humano.** Decidiste ramificar HU-02 desde `origin/feature/access-position-detail` (el shell HU-1 no estaba en `frontend-CRN`). Para respetar la regla 4, los tests HU-1 quedaron intactos y los de HU-02 se añadieron en `PositionDetail.flow.test.tsx` (el componente captura el rechazo del fetch, así los tests HU-1 siguen verde sin mock).
