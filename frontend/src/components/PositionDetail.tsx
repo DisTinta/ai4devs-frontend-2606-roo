@@ -1,10 +1,17 @@
 import React, { useEffect, useState } from "react";
 import { Container, Row, Col } from "react-bootstrap";
 import { Link, useParams } from "react-router-dom";
+import {
+  DndContext,
+  DragEndEvent,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/core";
 import { mockPositions } from "./Positions";
 import {
   getInterviewFlow,
   getCandidates,
+  updateCandidateStage,
   InterviewFlow,
   Candidate,
 } from "../services/positionService";
@@ -38,6 +45,44 @@ const groupByStageId = (
   return groups;
 };
 
+// A candidate card that can be picked up and dragged. It carries its source
+// column (`stepId`) and `applicationId` as drag data so the drop handler can
+// address the stage change by numeric id. Disabled while its move is in flight.
+const DraggableCard: React.FC<{
+  candidate: Candidate;
+  stepId: number;
+  disabled: boolean;
+}> = ({ candidate, stepId, disabled }) => {
+  const { attributes, listeners, setNodeRef } = useDraggable({
+    id: candidate.id,
+    data: { applicationId: candidate.applicationId, stepId },
+    disabled,
+  });
+
+  return (
+    <div ref={setNodeRef} {...attributes} {...listeners}>
+      <CandidateCard candidate={candidate} />
+    </div>
+  );
+};
+
+// A stage column that accepts dropped cards. Its droppable id is the numeric
+// step id, so the drop handler reads the destination stage straight off `over`.
+const DroppableColumn: React.FC<{
+  stepId: number;
+  title: string;
+  children: React.ReactNode;
+}> = ({ stepId, title, children }) => {
+  const { setNodeRef } = useDroppable({ id: stepId });
+
+  return (
+    <Col ref={setNodeRef} className="mb-4">
+      <h3 className="h5">{title}</h3>
+      {children}
+    </Col>
+  );
+};
+
 const PositionDetail: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const numericId = Number(id);
@@ -46,6 +91,10 @@ const PositionDetail: React.FC = () => {
 
   const [flow, setFlow] = useState<InterviewFlow | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
+  // Candidate ids whose stage-change request is in flight; those cards are
+  // locked against further moves until the request settles (HU-4 scenario E).
+  const [locked, setLocked] = useState<Set<number>>(new Set());
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -83,6 +132,65 @@ const PositionDetail: React.FC = () => {
     };
   }, [numericId]);
 
+  // Drop handler: move the card optimistically, persist, and roll back on
+  // failure. Same-column drops and in-flight cards are no-ops (scenarios D/E).
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      return;
+    }
+
+    const candidateId = Number(active.id);
+    const destStepId = Number(over.id);
+    const data = (active.data?.current ?? {}) as {
+      applicationId?: number;
+      stepId?: number;
+    };
+    const sourceStepId = Number(data.stepId);
+    const applicationId = Number(data.applicationId);
+
+    if (destStepId === sourceStepId) {
+      return; // Same-column drop: no request, nothing changes (scenario D).
+    }
+    if (locked.has(candidateId)) {
+      return; // Already moving: ignore until it settles (scenario E).
+    }
+
+    // Optimistic move: the card appears in the destination column immediately,
+    // before the response arrives (scenario B).
+    setCandidates((prev) =>
+      prev.map((candidate) =>
+        candidate.id === candidateId
+          ? { ...candidate, currentInterviewStepId: destStepId }
+          : candidate,
+      ),
+    );
+    setLocked((prev) => new Set(prev).add(candidateId));
+    setError(null);
+
+    const unlock = () =>
+      setLocked((prev) => {
+        const next = new Set(prev);
+        next.delete(candidateId);
+        return next;
+      });
+
+    updateCandidateStage(candidateId, applicationId, destStepId)
+      .then(unlock)
+      .catch(() => {
+        // Roll back to the original column and surface the error (scenario C).
+        setCandidates((prev) =>
+          prev.map((candidate) =>
+            candidate.id === candidateId
+              ? { ...candidate, currentInterviewStepId: sourceStepId }
+              : candidate,
+          ),
+        );
+        unlock();
+        setError("No se pudo mover al candidato. Inténtalo de nuevo.");
+      });
+  };
+
   const groups = flow
     ? groupByStageId(
         candidates,
@@ -102,20 +210,28 @@ const PositionDetail: React.FC = () => {
         </Link>
         <h2 className="mb-0">{flow ? flow.positionName : `Posición ${id}`}</h2>
       </div>
+      {error && (
+        <div role="alert" className="alert alert-danger">
+          {error}
+        </div>
+      )}
       {flow ? (
-        <Row>
-          {flow.steps.map((step) => (
-            <Col key={step.id} className="mb-4">
-              <h3 className="h5">{step.name}</h3>
-              {(groups.get(step.id) ?? []).map((candidate) => (
-                <CandidateCard
-                  key={candidate.applicationId}
-                  candidate={candidate}
-                />
-              ))}
-            </Col>
-          ))}
-        </Row>
+        <DndContext onDragEnd={handleDragEnd}>
+          <Row>
+            {flow.steps.map((step) => (
+              <DroppableColumn key={step.id} stepId={step.id} title={step.name}>
+                {(groups.get(step.id) ?? []).map((candidate) => (
+                  <DraggableCard
+                    key={candidate.applicationId}
+                    candidate={candidate}
+                    stepId={step.id}
+                    disabled={locked.has(candidate.id)}
+                  />
+                ))}
+              </DroppableColumn>
+            ))}
+          </Row>
+        </DndContext>
       ) : isKnown ? (
         <p className="text-muted">Detalle de la posición en construcción.</p>
       ) : (

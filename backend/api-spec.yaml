@@ -296,3 +296,40 @@ paths:
           description: Candidate or application not found
         '500':
           description: Internal server error
+
+  /candidates/{id}/stage:
+    put:
+      summary: Update candidate stage (kanban move)
+      description: >-
+        Additive alias of PUT /candidates/{id} used by the kanban board to move a
+        candidate to another interview stage. Same request body, controller and
+        behaviour; PUT /candidates/{id} remains available and unchanged.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+          description: ID of the candidate
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                applicationId:
+                  type: integer
+                  description: ID of the application
+                currentInterviewStep:
+                  type: integer
+                  description: Numeric id of the destination interview step
+      responses:
+        '200':
+          description: Candidate stage updated successfully
+        '400':
+          description: Invalid input data
+        '404':
+          description: Candidate or application not found
+        '500':
+          description: Internal server error

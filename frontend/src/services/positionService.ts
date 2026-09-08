@@ -82,3 +82,29 @@ export const getCandidates = async (id: number): Promise<Candidate[]> => {
 
   return (await response.json()) as Candidate[];
 };
+
+// Persists a candidate's stage change (HU-4). Hits the additive
+// PUT /candidates/:id/stage route with the numeric destination step id as
+// `currentInterviewStep`. Resolves on success and rejects on a non-ok status or
+// a network failure, so the board can drive its optimistic rollback uniformly.
+export const updateCandidateStage = async (
+  candidateId: number,
+  applicationId: number,
+  stepId: number,
+): Promise<void> => {
+  const response = await fetch(
+    `${API_BASE_URL}/candidates/${candidateId}/stage`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        applicationId,
+        currentInterviewStep: stepId,
+      }),
+    },
+  );
+
+  if (!response.ok) {
+    throw new Error("Failed to update the candidate stage");
+  }
+};
