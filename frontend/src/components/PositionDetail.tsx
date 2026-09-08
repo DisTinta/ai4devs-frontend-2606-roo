@@ -4,6 +4,8 @@ import { Link, useParams } from "react-router-dom";
 import {
   DndContext,
   DragEndEvent,
+  DragOverlay,
+  DragStartEvent,
   MouseSensor,
   TouchSensor,
   useDraggable,
@@ -71,14 +73,21 @@ const DraggableCard: React.FC<{
   stepId: number;
   disabled: boolean;
 }> = ({ candidate, stepId, disabled }) => {
-  const { attributes, listeners, setNodeRef } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: candidate.id,
     data: { applicationId: candidate.applicationId, stepId },
     disabled,
   });
 
+  // While dragging, the original is dimmed; the moving card is rendered by the
+  // DragOverlay so it follows the pointer and animates smoothly on drop.
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners}>
+    <div
+      ref={setNodeRef}
+      {...attributes}
+      {...listeners}
+      style={{ opacity: isDragging ? 0.4 : 1 }}
+    >
       <CandidateCard candidate={candidate} />
     </div>
   );
@@ -126,6 +135,11 @@ const PositionDetail: React.FC = () => {
   const [locked, setLocked] = useState<Set<number>>(new Set());
   // Per-card move error (HU-4 rollback message), distinct from fetch errors.
   const [moveError, setMoveError] = useState<string | null>(null);
+  // Candidate id currently being dragged, so the DragOverlay can render a
+  // floating clone that follows the pointer during the drag.
+  const [activeCandidateId, setActiveCandidateId] = useState<number | null>(
+    null,
+  );
 
   const mounted = useRef(true);
   useEffect(() => {
@@ -185,9 +199,14 @@ const PositionDetail: React.FC = () => {
     loadCandidates();
   }, [isKnown, loadFlow, loadCandidates]);
 
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveCandidateId(Number(event.active.id));
+  };
+
   // Drop handler: move the card optimistically, persist, and roll back on
   // failure. Same-column drops and in-flight cards are no-ops (HU-4).
   const handleDragEnd = (event: DragEndEvent) => {
+    setActiveCandidateId(null);
     const { active, over } = event;
     if (!over) {
       return;
@@ -284,6 +303,9 @@ const PositionDetail: React.FC = () => {
     const flow = flowState.data as InterviewFlow;
     const candidatesEmpty =
       candidatesState.status === "success" && candidatesState.data.length === 0;
+    const activeCandidate = candidatesState.data.find(
+      (candidate) => candidate.id === activeCandidateId,
+    );
 
     return (
       <>
@@ -302,7 +324,12 @@ const PositionDetail: React.FC = () => {
         {candidatesEmpty && (
           <p className="text-muted">No hay candidatos en esta posición.</p>
         )}
-        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveCandidateId(null)}
+        >
           <div
             data-testid="board-columns"
             className="d-flex flex-column flex-md-row overflow-x-auto gap-3"
@@ -333,6 +360,11 @@ const PositionDetail: React.FC = () => {
               );
             })}
           </div>
+          <DragOverlay dropAnimation={{ duration: 200, easing: "ease" }}>
+            {activeCandidate ? (
+              <CandidateCard candidate={activeCandidate} />
+            ) : null}
+          </DragOverlay>
         </DndContext>
       </>
     );
