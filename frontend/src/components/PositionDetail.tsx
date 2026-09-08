@@ -19,6 +19,8 @@ import {
   InterviewFlow,
   Candidate,
 } from "../services/positionService";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faArrowLeft } from "@fortawesome/free-solid-svg-icons";
 import CandidateCard from "./CandidateCard";
 
 const knownPositionIds = mockPositions.map((position) => position.id);
@@ -342,9 +344,10 @@ const PositionDetail: React.FC = () => {
         <Link
           to="/positions"
           className="btn btn-link me-3 flex-shrink-0"
+          style={{ textDecoration: "none" }}
           aria-label="Volver a posiciones"
         >
-          ←
+          <FontAwesomeIcon icon={faArrowLeft} />
         </Link>
         <h2 className="mb-0 text-break">{title}</h2>
       </div>
