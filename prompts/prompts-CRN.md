@@ -139,3 +139,16 @@ Antes de redactar, lee la épica (00-epic-position-kanban.md) para el alcance, l
 **Por qué funcionó.** El Reality map ya confirmaba que el controller/service de cambio de fase existían y solo faltaba exponer la ruta; el spec/design partieron de "reutilizar, no reescribir". La ADR 20260908 fijó dnd-kit y la clave de fase por id numérico, así que el body `{ applicationId, currentInterviewStep(=id) }` quedó determinado sin ambigüedad.
 
 **Ajuste humano.** El drag real de dnd-kit no corre en jsdom, así que `PositionDetail.dnd.test.tsx` mockea `@dnd-kit/core` capturando `onDragEnd` y los datos que registra cada tarjeta (el wiring del componente sigue bajo test; solo se sustituye la mecánica de la librería). El drag real se cubre en el E2E de Playwright. La rama HU-04 se creó sobre `feature/view-candidates-in-stage` (que tiene HU-3), no sobre `frontend-CRN` (que aún no lo integra). Se eliminó un import muerto pre-existente (`InputGroup` en `AddCandidateForm.js`) que rompía el build con `CI=true`.
+
+### Prompt 10 — HU-05 estados de carga, error y vacío (opsx:propose + opsx:apply)
+
+```
+/opsx:propose user-stories/HU-05-loading-error-empty-states.md
+/opsx:apply
+```
+
+**Resultado.** Change `loading-error-empty-states`, capability nueva `position-board-states`, frontend-only. `PositionDetail.tsx` pasa a estado por-fetch (`loading|success|error`) para flujo y candidatos: carga conjunta (un `Spinner` hasta que ambos resuelven), error con `Alert` + "Reintentar" granular (reintenta solo la petición fallida), lista vacía (`[]`) con mensaje + columnas con placeholder, y distinción estricta vacío≠error. El placeholder de columna vacía vive dentro del droppable dnd-kit (sigue siendo drop target de HU-4). Frontend 38/38 + build OK. E2E Playwright con datos reales: `/positions/3` (flujo 404 → error board-level), y `/positions/1` con override de `fetch` para vacío y para fallo de candidatos + recuperación por reintento.
+
+**Por qué funcionó.** HU-2/3 ya habían dejado explícito "estados ricos = HU-5" y solo garantizaban "no crash"; el modelo de estado por-fetch resolvió el único punto de diseño real: distinguir `[]` (éxito vacío) de rechazo, que antes se colapsaban en `[]`.
+
+**Ajuste humano.** El modelo nuevo salió retrocompatible: los tests HU-2/3/4 siguieron verdes sin tocarlos porque el shell HU-1 se mantiene montado en todos los estados y las columnas se siguen renderizando en éxito. El spinner de carga conjunta (Escenario A) se verifica en el unit test (en local resuelve demasiado rápido para capturarlo en navegador). Id de posición desconocido: cortocircuito a "no encontrada" sin fetch.
