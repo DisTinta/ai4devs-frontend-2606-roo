@@ -1,11 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Container, Row, Col, Spinner, Alert, Button } from "react-bootstrap";
+import { Container, Spinner, Alert, Button } from "react-bootstrap";
 import { Link, useParams } from "react-router-dom";
 import {
   DndContext,
   DragEndEvent,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
+  useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 import { mockPositions } from "./Positions";
 import {
@@ -89,11 +93,18 @@ const DroppableColumn: React.FC<{
 }> = ({ stepId, title, children }) => {
   const { setNodeRef } = useDroppable({ id: stepId });
 
+  // Below md this stacks full-width (flex-column parent); at md+ it keeps a min
+  // width and does not shrink, so the row overflows and scrolls horizontally.
   return (
-    <Col ref={setNodeRef} className="mb-4">
+    <div
+      ref={setNodeRef}
+      data-testid="board-column"
+      className="board-column mb-4 flex-md-shrink-0"
+      style={{ minWidth: "16rem" }}
+    >
       <h3 className="h5">{title}</h3>
       {children}
-    </Col>
+    </div>
   );
 };
 
@@ -121,6 +132,15 @@ const PositionDetail: React.FC = () => {
       mounted.current = false;
     };
   }, []);
+
+  // Mouse drags immediately; touch needs a long-press (delay + tolerance) so a
+  // short swipe scrolls the page and only a held press starts a drag (HU-6).
+  const sensors = useSensors(
+    useSensor(MouseSensor),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 5 },
+    }),
+  );
 
   // Independent fetch runners so a retry re-issues only the failed request
   // (HU-5 granular retry).
@@ -280,8 +300,11 @@ const PositionDetail: React.FC = () => {
         {candidatesEmpty && (
           <p className="text-muted">No hay candidatos en esta posición.</p>
         )}
-        <DndContext onDragEnd={handleDragEnd}>
-          <Row>
+        <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+          <div
+            data-testid="board-columns"
+            className="d-flex flex-column flex-md-row overflow-x-auto gap-3"
+          >
             {flow.steps.map((step) => {
               const cards = groups.get(step.id) ?? [];
               return (
@@ -307,7 +330,7 @@ const PositionDetail: React.FC = () => {
                 </DroppableColumn>
               );
             })}
-          </Row>
+          </div>
         </DndContext>
       </>
     );
@@ -318,12 +341,12 @@ const PositionDetail: React.FC = () => {
       <div className="d-flex align-items-center mb-4">
         <Link
           to="/positions"
-          className="btn btn-link me-3"
+          className="btn btn-link me-3 flex-shrink-0"
           aria-label="Volver a posiciones"
         >
           ←
         </Link>
-        <h2 className="mb-0">{title}</h2>
+        <h2 className="mb-0 text-break">{title}</h2>
       </div>
       {moveError && (
         <div role="alert" className="alert alert-danger">
